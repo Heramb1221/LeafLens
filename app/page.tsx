@@ -7,6 +7,10 @@ import {
   Thermometer, Heart, Star, Clock, Shield, Menu, X, Users,
   Mail, BookOpen, Github, Twitter, Instagram, Zap, Globe, Eye, HomeIcon, Moon, SunIcon, Scan, Image, ArrowRight, Check, Award, TrendingUp
 } from 'lucide-react'
+import { GoogleGenerativeAI } from '@google/generative-ai'
+import { identifyPlant } from '../app/utils/gemini';
+
+const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '')
 
 interface PlantInfo {
   name: string
@@ -31,8 +35,14 @@ export default function LeafLensApp() {
   const [error, setError] = useState<string | null>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
+  const [stream, setStream] = useState<MediaStream | null>(null)
+  
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
 
   // Animation refs
   const heroRef = useRef(null)
@@ -41,29 +51,83 @@ export default function LeafLensApp() {
   const backgroundY = useTransform(scrollYProgress, [0, 1], ['0%', '100%'])
   const isHeroInView = useInView(heroRef, { once: true, margin: "-100px" })
 
-  // Mock plant identification function
-  const identifyPlant = async (imageBase64: string): Promise<PlantInfo> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    return {
-      name: "Peace Lily",
-      scientificName: "Spathiphyllum wallisii",
-      family: "Araceae",
-      description: "The Peace Lily is an elegant houseplant known for its distinctive white spathe flowers and glossy green leaves. It's prized for its air-purifying qualities and ability to thrive in low-light conditions, making it perfect for indoor environments.",
-      care: {
-        sunlight: "Bright, indirect light",
-        water: "Keep soil consistently moist but not waterlogged",
-        temperature: "65-80°F (18-27°C)",
-        humidity: "40-60% humidity preferred"
-      },
-      nativeRegion: "Tropical regions of the Americas and southeastern Asia",
-      uses: ["Air purification", "Indoor decoration", "Feng shui", "Low-maintenance houseplant"],
-      funFacts: [
-        "NASA lists Peace Lily as one of the top air-purifying plants",
-        "The white 'flower' is actually a specialized leaf called a spathe",
-        "Can bloom multiple times per year with proper care"
-      ]
+  // Start camera stream
+  const startCamera = async () => {
+    try {
+      setError(null)
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment', // Use back camera on mobile
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      })
+      setStream(mediaStream)
+      setShowCamera(true)
+      
+      // Set the video stream after a small delay to ensure video element is rendered
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream
+        }
+      }, 100)
+    } catch (err) {
+      console.error('Error accessing camera:', err)
+      setError('Unable to access camera. Please check permissions or try uploading an image instead.')
+    }
+  }
+
+  // Stop camera stream
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop())
+      setStream(null)
+    }
+    setShowCamera(false)
+  }
+
+  // Capture photo from camera
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      const context = canvas.getContext('2d')
+      
+      if (context) {
+        // Set canvas dimensions to match video
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        
+        // Draw the video frame to canvas
+        context.drawImage(video, 0, 0, canvas.width, canvas.height)
+        
+        // Convert canvas to blob and then to object URL
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const imageUrl = URL.createObjectURL(blob)
+            setSelectedImage(imageUrl)
+            stopCamera()
+            
+            // Process the image
+            processImage(canvas.toDataURL())
+          }
+        }, 'image/jpeg', 0.9)
+      }
+    }
+  }
+
+  // Process captured or uploaded image
+  const processImage = async (base64Image: string) => {
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      const result = await identifyPlant(base64Image)
+      setPlantInfo(result)
+    } catch (err) {
+      setError('Failed to identify plant. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -73,26 +137,17 @@ export default function LeafLensApp() {
 
     const imageUrl = URL.createObjectURL(file)
     setSelectedImage(imageUrl)
-    setError(null)
-    setIsLoading(true)
 
-    try {
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const base64 = e.target?.result as string
-        const result = await identifyPlant(base64)
-        setPlantInfo(result)
-        setIsLoading(false)
-      }
-      reader.readAsDataURL(file)
-    } catch (err) {
-      setError('Failed to identify plant. Please try again.')
-      setIsLoading(false)
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string
+      await processImage(base64)
     }
+    reader.readAsDataURL(file)
   }
 
   const handleCameraCapture = () => {
-    cameraInputRef.current?.click()
+    startCamera()
   }
 
   const handleUploadClick = () => {
@@ -104,11 +159,21 @@ export default function LeafLensApp() {
     setPlantInfo(null)
     setError(null)
     setIsLoading(false)
+    stopCamera()
   }
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode)
   }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop())
+      }
+    }
+  }, [stream])
 
   // Advanced animation variants
   const containerVariants = {
@@ -463,6 +528,35 @@ export default function LeafLensApp() {
             >
               {!selectedImage ? (
                 <div className="grid md:grid-cols-2 gap-6 mb-12">
+                  {showCamera && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md">
+    <div className="relative bg-white rounded-2xl p-4 shadow-2xl max-w-sm w-full flex flex-col items-center dark:bg-slate-900">
+      <video
+        ref={videoRef}
+        autoPlay
+        className="w-full rounded-xl object-cover mb-4"
+        style={{ minHeight: 320 }}
+      />
+      <canvas ref={canvasRef} className="hidden"></canvas>
+      
+      <div className="flex justify-between w-full gap-2">
+        <button
+          onClick={capturePhoto}
+          className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow transition-colors"
+        >
+          Capture Photo
+        </button>
+        <button
+          onClick={stopCamera}
+          className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold shadow transition-colors ml-2"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
                   {/* Upload Option */}
                   <motion.div
                     whileHover={{ scale: 1.02, y: -5 }}
@@ -716,7 +810,7 @@ export default function LeafLensApp() {
                 type="file"
                 accept="image/*"
                 capture="environment"
-                onChange={handleUploadClick}
+                onChange={handleImageUpload}
                 className="hidden"
               />
             </motion.div>
