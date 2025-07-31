@@ -274,9 +274,9 @@ export default function LeafLensApp() {
               {[
                 { icon: HomeIcon, label: 'Home', href: '#' },
                 { icon: Scan, label: 'Scanner', href: '#scanner' },
-                { icon: BookOpen, label: 'Plant Guide', href: '#guide' },
-                { icon: Users, label: 'Community', href: '#community' },
-                { icon: Mail, label: 'Contact', href: '#contact' }
+                { icon: BookOpen, label: 'Plant Guide', href: '/guide' },
+                { icon: Users, label: 'Community', href: '/community' },
+                { icon: Mail, label: 'Contact', href: '/contact' }
               ].map((item, index) => (
                 <motion.a
                   key={item.label}
@@ -347,9 +347,9 @@ export default function LeafLensApp() {
                   {[
                     { icon: HomeIcon, label: 'Home', href: '#' },
                     { icon: Scan, label: 'Scanner', href: '#scanner' },
-                    { icon: BookOpen, label: 'Plant Guide', href: '#guide' },
-                    { icon: Users, label: 'Community', href: '#community' },
-                    { icon: Mail, label: 'Contact', href: '#contact' }
+                    { icon: BookOpen, label: 'Plant Guide', href: '/guide' },
+                    { icon: Users, label: 'Community', href: '/community' },
+                    { icon: Mail, label: 'Contact', href: '/contact' }
                   ].map((item) => (
                     <a 
                       key={item.label}
@@ -1452,7 +1452,7 @@ export default function LeafLensApp() {
                   ].map((social, index) => (
                     <motion.a
                       key={index}
-                      href="#"
+                      href="https://github.com/heramb1221"
                       whileHover={{ scale: 1.1, y: -2 }}
                       whileTap={{ scale: 0.9 }}
                       className={`bg-emerald-700/50 p-3 rounded-xl ${social.color} transition-all duration-300 backdrop-blur-sm`}
@@ -1475,8 +1475,8 @@ export default function LeafLensApp() {
                   {[
                     { icon: HomeIcon, label: "Home", href: "#" },
                     { icon: Scan, label: "Plant Scanner", href: "#scanner" },
-                    { icon: BookOpen, label: "Plant Database", href: "#database" },
-                    { icon: Users, label: "Community", href: "#community" },
+                    { icon: BookOpen, label: "Plant Database", href: "/guide" },
+                    { icon: Users, label: "Community", href: "/community" },
                     { icon: Award, label: "Premium", href: "#premium" }
                   ].map((link) => (
                     <li key={link.label}>
