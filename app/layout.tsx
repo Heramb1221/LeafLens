@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'PlantID - AI Plant Identifier',
+  title: 'LeafLens - AI Plant Identifier',
   description: 'Identify plants instantly using AI-powered image recognition',
 }
 
