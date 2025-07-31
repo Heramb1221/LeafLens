@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 min-h-screen;
+  }
+}
+
+@layer components {
+  .glass-effect {
+    @apply backdrop-blur-lg bg-white/20 border border-white/30 shadow-xl;
+  }
+  
+  .upload-area {
+    @apply border-2 border-dashed border-emerald-300 bg-emerald-50/50 hover:border-emerald-400 hover:bg-emerald-100/50 transition-all duration-300;
+  }
+}
