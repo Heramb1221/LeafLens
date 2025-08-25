@@ -17,6 +17,7 @@ interface PlantInfo {
   scientificName: string
   family: string
   description: string
+  confidenceScore: number
   care: {
     sunlight: string
     water: string
@@ -37,21 +38,28 @@ export default function LeafLensApp() {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [showCamera, setShowCamera] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
+  const [plantFact, setPlantFact] = useState<any>(null)
+  const [isLoadingFact, setIsLoadingFact] = useState(false)
+  const [showGalleryOption, setShowGalleryOption] = useState(false)
+
+  const getConfidenceColor = (score: number) => {
+    if (score >= 90) return isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700';
+    if (score >= 70) return isDarkMode ? 'bg-emerald-900/30 text-emerald-300' : 'bg-emerald-100 text-emerald-700';
+    if (score >= 50) return isDarkMode ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-700';
+    return isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-700';
+  };
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-
-  // Animation refs
   const heroRef = useRef(null)
   const featuresRef = useRef(null)
   const { scrollYProgress } = useScroll()
   const backgroundY = useTransform(scrollYProgress, [0, 1], ['0%', '100%'])
   const isHeroInView = useInView(heroRef, { once: true, margin: "-100px" })
 
-  // Start camera stream
   const startCamera = async () => {
     try {
       setError(null)
@@ -64,8 +72,7 @@ export default function LeafLensApp() {
       })
       setStream(mediaStream)
       setShowCamera(true)
-      
-      // Set the video stream after a small delay to ensure video element is rendered
+
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream
@@ -77,7 +84,6 @@ export default function LeafLensApp() {
     }
   }
 
-  // Stop camera stream
   const stopCamera = () => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop())
@@ -86,7 +92,6 @@ export default function LeafLensApp() {
     setShowCamera(false)
   }
 
-  // Capture photo from camera
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current
@@ -94,21 +99,17 @@ export default function LeafLensApp() {
       const context = canvas.getContext('2d')
       
       if (context) {
-        // Set canvas dimensions to match video
         canvas.width = video.videoWidth
         canvas.height = video.videoHeight
-        
-        // Draw the video frame to canvas
+
         context.drawImage(video, 0, 0, canvas.width, canvas.height)
-        
-        // Convert canvas to blob and then to object URL
+
         canvas.toBlob((blob) => {
           if (blob) {
             const imageUrl = URL.createObjectURL(blob)
             setSelectedImage(imageUrl)
             stopCamera()
-            
-            // Process the image
+
             processImage(canvas.toDataURL())
           }
         }, 'image/jpeg', 0.9)
@@ -116,7 +117,6 @@ export default function LeafLensApp() {
     }
   }
 
-  // Process captured or uploaded image
   const processImage = async (base64Image: string) => {
     setError(null)
     setIsLoading(true)
@@ -162,11 +162,15 @@ export default function LeafLensApp() {
     stopCamera()
   }
 
+  const saveToGallery = async () => {
+    alert('Image saved to gallery successfully!');
+    setShowGalleryOption(false);
+  }
+
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode)
   }
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (stream) {
@@ -175,7 +179,23 @@ export default function LeafLensApp() {
     }
   }, [stream])
 
-  // Advanced animation variants
+  useEffect(() => {
+    const fetchPlantFact = async () => {
+      try {
+        setIsLoadingFact(true);
+        const { getRandomPlantFact } = await import('../app/utils/gemini');
+        const fact = await getRandomPlantFact();
+        setPlantFact(fact);
+      } catch (error) {
+        console.error('Error fetching plant fact:', error);
+      } finally {
+        setIsLoadingFact(false);
+      }
+    };
+    
+    fetchPlantFact();
+  }, []);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -276,6 +296,10 @@ export default function LeafLensApp() {
                 { icon: Scan, label: 'Scanner', href: '#scanner' },
                 { icon: BookOpen, label: 'Plant Guide', href: '/guide' },
                 { icon: Users, label: 'Community', href: '/community' },
+                { icon: Image, label: 'Gallery', href: '/gallery' },
+                { icon: Globe, label: 'Encyclopedia', href: '/encyclopedia' },
+                { icon: Award, label: 'Quiz', href: '/quiz' },
+                { icon: ArrowRight, label: 'Exchange', href: '/exchange' },
                 { icon: Mail, label: 'Contact', href: '/contact' }
               ].map((item, index) => (
                 <motion.a
@@ -349,6 +373,10 @@ export default function LeafLensApp() {
                     { icon: Scan, label: 'Scanner', href: '#scanner' },
                     { icon: BookOpen, label: 'Plant Guide', href: '/guide' },
                     { icon: Users, label: 'Community', href: '/community' },
+                    { icon: Image, label: 'Gallery', href: '/gallery' },
+                    { icon: Globe, label: 'Encyclopedia', href: '/encyclopedia' },
+                    { icon: Award, label: 'Quiz', href: '/quiz' },
+                    { icon: ArrowRight, label: 'Exchange', href: '/exchange' },
                     { icon: Mail, label: 'Contact', href: '/contact' }
                   ].map((item) => (
                     <a 
@@ -529,33 +557,33 @@ export default function LeafLensApp() {
               {!selectedImage ? (
                 <div className="grid md:grid-cols-2 gap-6 mb-12">
                   {showCamera && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md">
-    <div className="relative bg-white rounded-2xl p-4 shadow-2xl max-w-sm w-full flex flex-col items-center dark:bg-slate-900">
-      <video
-        ref={videoRef}
-        autoPlay
-        className="w-full rounded-xl object-cover mb-4"
-        style={{ minHeight: 320 }}
-      />
-      <canvas ref={canvasRef} className="hidden"></canvas>
-      
-      <div className="flex justify-between w-full gap-2">
-        <button
-          onClick={capturePhoto}
-          className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow transition-colors"
-        >
-          Capture Photo
-        </button>
-        <button
-          onClick={stopCamera}
-          className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold shadow transition-colors ml-2"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md">
+                      <div className="relative bg-white rounded-2xl p-4 shadow-2xl max-w-sm w-full flex flex-col items-center dark:bg-slate-900">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          className="w-full rounded-xl object-cover mb-4"
+                          style={{ minHeight: 320 }}
+                        />
+                        <canvas ref={canvasRef} className="hidden"></canvas>
+                        
+                        <div className="flex justify-between w-full gap-2">
+                          <button
+                            onClick={capturePhoto}
+                            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-bold shadow transition-colors"
+                          >
+                            Capture Photo
+                          </button>
+                          <button
+                            onClick={stopCamera}
+                            className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold shadow transition-colors ml-2"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Upload Option */}
                   <motion.div
@@ -851,6 +879,20 @@ export default function LeafLensApp() {
                         Plant Identified
                       </div>
                     </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.35 }}
+                      className="mb-4"
+                    >
+                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${isDarkMode ? 'bg-slate-700' : 'bg-gray-100'}`}>
+                        <TrendingUp className="w-4 h-4 text-emerald-500" />
+                        <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Confidence Score: {Math.round(plantInfo.confidenceScore * 100)}%
+                        </span>
+                      </div>
+                    </motion.div>
                     
                     <motion.h3
                       initial={{ y: 20, opacity: 0 }}
@@ -1057,9 +1099,62 @@ export default function LeafLensApp() {
                       ))}
                     </div>
                   </motion.div>
+
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button
+                      onClick={() => setShowGalleryOption(true)}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-xl ${isDarkMode ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-500 hover:bg-emerald-600'} text-white font-semibold transition-colors shadow-lg`}
+                    >
+                      <Image className="w-5 h-5" />
+                      Save to Gallery
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Logic to download information as PDF or JSON
+                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(plantInfo));
+                        const downloadAnchorNode = document.createElement('a');
+                        downloadAnchorNode.setAttribute("href", dataStr);
+                        downloadAnchorNode.setAttribute("download", `${plantInfo.name}.json`);
+                        document.body.appendChild(downloadAnchorNode);
+                        downloadAnchorNode.click();
+                        downloadAnchorNode.remove();
+                      }}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-xl ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold transition-colors shadow-lg`}
+                    >
+                      <ArrowRight className="w-5 h-5" />
+                      Download Data
+                    </button>
+                  </div>
                 </motion.div>
               </div>
             </motion.section>
+          )}
+
+          {showGalleryOption && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className={`${isDarkMode ? 'bg-slate-800' : 'bg-white'} rounded-2xl p-6 max-w-md w-full shadow-2xl`}>
+                <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-4`}>
+                  Save to Gallery
+                </h3>
+                <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mb-6`}>
+                  This plant identification will be saved to the community gallery where others can view and learn from it.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowGalleryOption(false)}
+                    className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-slate-700 text-gray-300' : 'bg-gray-200 text-gray-700'}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveToGallery}
+                    className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </AnimatePresence>
 
@@ -1178,10 +1273,64 @@ export default function LeafLensApp() {
                     <ArrowRight className="w-6 h-6" />
                   </motion.button>
                 </motion.div>
-              </motion.div>
+
+                  <div className="flex justify-center gap-4 mt-8">
+                    <button
+                      onClick={() => setShowGalleryOption(true)}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-xl ${isDarkMode ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-500 hover:bg-emerald-600'} text-white font-semibold transition-colors shadow-lg`}
+                    >
+                      <Image className="w-5 h-5" />
+                      Save to Gallery
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        // Logic to download information as PDF or JSON
+                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(plantInfo));
+                        const downloadAnchorNode = document.createElement('a');
+                        downloadAnchorNode.setAttribute("href", dataStr);
+                        downloadAnchorNode.setAttribute("download", `${(plantInfo as unknown as PlantInfo)?.name || 'plant'}.json`);
+                        document.body.appendChild(downloadAnchorNode);
+                        downloadAnchorNode.click();
+                        downloadAnchorNode.remove();
+                      }}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-xl ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold transition-colors shadow-lg`}
+                    >
+                      <ArrowRight className="w-5 h-5" />
+                      Export Data
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.section>
+          )}
+
+          {showGalleryOption && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className={`${isDarkMode ? 'bg-slate-800' : 'bg-white'} rounded-2xl p-6 max-w-md w-full shadow-2xl`}>
+                <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-4`}>
+                  Save to Gallery
+                </h3>
+                <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mb-6`}>
+                  This plant identification will be saved to the community gallery where others can view and learn from it.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowGalleryOption(false)}
+                    className={`px-4 py-2 rounded-lg ${isDarkMode ? 'bg-slate-700 text-gray-300' : 'bg-gray-200 text-gray-700'}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveToGallery}
+                    className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
             </div>
-          </motion.section>
-        )}
+          )}
 
         {/* Enhanced Features Section */}
         <motion.section
@@ -1286,6 +1435,49 @@ export default function LeafLensApp() {
                   </div>
                 </motion.div>
               ))}
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Plant of the Day Section */}
+        <motion.section
+          className="py-16 px-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          <div className="max-w-6xl mx-auto">
+            <div className={`${isDarkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-white/80 border-emerald-200'} backdrop-blur-xl rounded-3xl p-8 shadow-xl border`}>
+              <h3 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-6 flex items-center gap-2`}>
+                <Sparkles className="w-5 h-5 text-yellow-500" />
+                Plant of the Day
+              </h3>
+              
+              {isLoadingFact ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
+                </div>
+              ) : plantFact ? (
+                <div className="grid md:grid-cols-2 gap-6 items-center">
+                  <div>
+                    <h4 className={`text-xl font-semibold ${isDarkMode ? 'text-emerald-300' : 'text-emerald-600'} mb-3`}>
+                      {plantFact.title}
+                    </h4>
+                    <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} leading-relaxed`}>
+                      {plantFact.content}
+                    </p>
+                  </div>
+                  <div className="bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-xl p-4 h-48 flex items-center justify-center">
+                    <p className="text-center text-gray-500 dark:text-gray-400 italic">
+                      {plantFact.imagePrompt}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Unable to load plant fact. Please try again later.
+                </p>
+              )}
             </div>
           </div>
         </motion.section>

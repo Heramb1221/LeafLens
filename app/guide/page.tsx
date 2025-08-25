@@ -9,7 +9,6 @@ import {
   Menu, Moon, BookOpen, Users,  Globe, Info, Share2
 } from 'lucide-react'
 
-// Mock plant data
 const mockPlants = [
   {
     id: '1',
@@ -247,7 +246,6 @@ export default function PlantGuidePage() {
   const heroRef = useRef(null)
   const isHeroInView = useInView(heroRef, { once: true, margin: "-100px" })
 
-  // Initialize dark mode from localStorage or system preference
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme')
     if (savedTheme) {
@@ -257,7 +255,6 @@ export default function PlantGuidePage() {
     }
   }, [])
 
-  // Save theme preference and apply to document
   useEffect(() => {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light')
     if (isDarkMode) {
@@ -271,7 +268,6 @@ export default function PlantGuidePage() {
     setIsDarkMode(!isDarkMode)
   }
 
-  // Filter and sort plants
   const filteredAndSortedPlants = useMemo(() => {
     let filtered = mockPlants.filter(plant => {
       const matchesSearch = plant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -284,7 +280,6 @@ export default function PlantGuidePage() {
       return matchesSearch && matchesFamily && matchesRegion && matchesSunlight && matchesWater
     })
 
-    // Sort plants
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'popularity':
