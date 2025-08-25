@@ -72,8 +72,7 @@ export default function GalleryPage() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [sortBy, setSortBy] = useState('rating');
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Sort and filter gallery items
+
   const filteredItems = mockGalleryItems
     .filter(item => {
       if (!searchQuery) return true;

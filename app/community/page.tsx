@@ -12,7 +12,6 @@ import {
   Sun, Moon, Menu
 } from 'lucide-react'
 
-// Mock data
 const mockUser = {
   id: '1',
   name: 'Alex Green',
@@ -209,7 +208,6 @@ export default function CommunityPage() {
   const heroRef = useRef(null)
   const isHeroInView = useInView(heroRef, { once: true, margin: "-100px" })
 
-  // Initialize dark mode from localStorage or system preference
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme')
     if (savedTheme) {
@@ -219,7 +217,6 @@ export default function CommunityPage() {
     }
   }, [])
 
-  // Save theme preference and apply to document
   useEffect(() => {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light')
     if (isDarkMode) {
@@ -233,7 +230,6 @@ export default function CommunityPage() {
     setIsDarkMode(!isDarkMode)
   }
 
-  // Filter posts based on search and selected tag
   const filteredPosts = posts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          post.content.toLowerCase().includes(searchQuery.toLowerCase())
@@ -241,7 +237,6 @@ export default function CommunityPage() {
     return matchesSearch && matchesTag
   })
 
-  // Sort posts
   const sortedPosts = [...filteredPosts].sort((a, b) => {
     switch (sortBy) {
       case 'popular':
@@ -249,7 +244,7 @@ export default function CommunityPage() {
       case 'trending':
         return (b.trending ? 1 : 0) - (a.trending ? 1 : 0)
       default:
-        return 0 // newest - would need real timestamps in production
+        return 0
     }
   })
 

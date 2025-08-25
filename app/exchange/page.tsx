@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Leaf, Search, Filter, Plus, MapPin, MessageCircle, Calendar, Heart, Share2, Bookmark, ArrowRight, Clock, Star } from 'lucide-react'
 import Link from 'next/link'
@@ -80,22 +80,28 @@ export default function ExchangePage() {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('All')
-  
-  // Check for dark mode preference
-  useState(() => {
-    const isDark = localStorage.getItem('darkMode') === 'true'
-    setIsDarkMode(isDark)
-  })
-  
+
+  // ✅ load darkMode from localStorage only on client
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isDark = localStorage.getItem('darkMode') === 'true'
+      setIsDarkMode(isDark)
+    }
+  }, [])
+
+  // ✅ toggle and persist
   const toggleDarkMode = () => {
     const newMode = !isDarkMode
     setIsDarkMode(newMode)
-    localStorage.setItem('darkMode', String(newMode))
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('darkMode', String(newMode))
+    }
   }
-  
+
   const filteredListings = mockListings.filter(listing => {
-    const matchesSearch = listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         listing.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch =
+      listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      listing.description.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesFilter = filterType === 'All' || listing.type === filterType
     return matchesSearch && matchesFilter
   })

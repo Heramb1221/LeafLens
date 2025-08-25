@@ -89,8 +89,7 @@ export default function QuizPage() {
     const isDark = localStorage.getItem('darkMode') === 'true'
     setIsDarkMode(isDark)
   }, [])
-  
-  // Timer effect
+
   useEffect(() => {
     let timer: NodeJS.Timeout
     
