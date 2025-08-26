@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { identifyPlant } from '../app/utils/gemini';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '')
 
@@ -41,6 +43,7 @@ export default function LeafLensApp() {
   const [plantFact, setPlantFact] = useState<any>(null)
   const [isLoadingFact, setIsLoadingFact] = useState(false)
   const [showGalleryOption, setShowGalleryOption] = useState(false)
+  const infoRef = useRef(null);
 
   const getConfidenceColor = (score: number) => {
     if (score >= 90) return isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700';
@@ -846,7 +849,7 @@ export default function LeafLensApp() {
         </motion.section>
 
          {/* Enhanced Results Section */}
-        <AnimatePresence>
+        <AnimatePresence >
           {plantInfo && (
             <motion.section
               initial={{ opacity: 0, y: 50 }}
@@ -854,6 +857,7 @@ export default function LeafLensApp() {
               exit={{ opacity: 0, y: -50 }}
               transition={{ type: "spring", stiffness: 100 }}
               className="py-20 px-4"
+              ref={infoRef}
             >
               <div className="max-w-6xl mx-auto">
                 <motion.div
@@ -1109,21 +1113,22 @@ export default function LeafLensApp() {
                       Save to Gallery
                     </button>
                     <button
-                      onClick={() => {
-                        // Logic to download information as PDF or JSON
-                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(plantInfo));
-                        const downloadAnchorNode = document.createElement('a');
-                        downloadAnchorNode.setAttribute("href", dataStr);
-                        downloadAnchorNode.setAttribute("download", `${plantInfo.name}.json`);
-                        document.body.appendChild(downloadAnchorNode);
-                        downloadAnchorNode.click();
-                        downloadAnchorNode.remove();
-                      }}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-xl ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold transition-colors shadow-lg`}
-                    >
-                      <ArrowRight className="w-5 h-5" />
-                      Download Data
-                    </button>
+  onClick={async () => {
+    const element = infoRef.current;
+    if (!element) return;
+    const canvas = await html2canvas(element as HTMLElement, { scale: 2, useCORS: true });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'pt', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`${plantInfo.name}.pdf`);
+  }}
+  className={`flex items-center gap-2 px-6 py-3 rounded-xl ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold transition-colors shadow-lg`}
+>
+  <ArrowRight className="w-5 h-5" />
+  Export PDF
+</button>
                   </div>
                 </motion.div>
               </div>
@@ -1273,33 +1278,6 @@ export default function LeafLensApp() {
                     <ArrowRight className="w-6 h-6" />
                   </motion.button>
                 </motion.div>
-
-                  <div className="flex justify-center gap-4 mt-8">
-                    <button
-                      onClick={() => setShowGalleryOption(true)}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-xl ${isDarkMode ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-500 hover:bg-emerald-600'} text-white font-semibold transition-colors shadow-lg`}
-                    >
-                      <Image className="w-5 h-5" />
-                      Save to Gallery
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        // Logic to download information as PDF or JSON
-                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(plantInfo));
-                        const downloadAnchorNode = document.createElement('a');
-                        downloadAnchorNode.setAttribute("href", dataStr);
-                        downloadAnchorNode.setAttribute("download", `${(plantInfo as unknown as PlantInfo)?.name || 'plant'}.json`);
-                        document.body.appendChild(downloadAnchorNode);
-                        downloadAnchorNode.click();
-                        downloadAnchorNode.remove();
-                      }}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-xl ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white font-semibold transition-colors shadow-lg`}
-                    >
-                      <ArrowRight className="w-5 h-5" />
-                      Export Data
-                    </button>
-                  </div>
                 </motion.div>
               </div>
             </motion.section>
