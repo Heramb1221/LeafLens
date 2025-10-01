@@ -7,12 +7,9 @@ import {
   Thermometer, Heart, Star, Clock, Shield, Menu, X, Users,
   Mail, BookOpen, Github, Twitter, Instagram, Zap, Globe, Eye, HomeIcon, Moon, SunIcon, Scan, Image, ArrowRight, Check, Award, TrendingUp
 } from 'lucide-react'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { identifyPlant } from '../app/utils/gemini';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '')
 
 interface PlantInfo {
   name: string
@@ -31,6 +28,25 @@ interface PlantInfo {
   funFacts: string[]
 }
 
+function validatePlantData(data: any): PlantInfo {
+  return {
+    name: data.name || "Unknown Plant",
+    scientificName: data.scientificName || "Not identified",
+    family: data.family || "Unknown family",
+    description: data.description || "No description available",
+    confidenceScore: typeof data.confidenceScore === 'number' ? data.confidenceScore : 0.5,
+    care: {
+      sunlight: data.care?.sunlight || "Moderate sunlight",
+      water: data.care?.water || "Regular watering",
+      temperature: data.care?.temperature || "15-25°C",
+      humidity: data.care?.humidity || "Moderate humidity"
+    },
+    nativeRegion: data.nativeRegion || "Unknown region",
+    uses: Array.isArray(data.uses) ? data.uses : ["Ornamental"],
+    funFacts: Array.isArray(data.funFacts) ? data.funFacts : ["This is an interesting plant!"]
+  }
+}
+
 export default function LeafLensApp() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -43,7 +59,20 @@ export default function LeafLensApp() {
   const [plantFact, setPlantFact] = useState<any>(null)
   const [isLoadingFact, setIsLoadingFact] = useState(false)
   const [showGalleryOption, setShowGalleryOption] = useState(false)
-  const infoRef = useRef(null);
+  const infoRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+  // Check if API key is configured
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error("⚠️ CRITICAL: NEXT_PUBLIC_GEMINI_API_KEY is not set!");
+    console.log("Please create a .env.local file with:");
+    console.log("NEXT_PUBLIC_GEMINI_API_KEY=your_api_key_here");
+    setError("API key not configured. Please check console for instructions.");
+  } else {
+    console.log("✅ API key is configured");
+  }
+}, [])
 
   const getConfidenceColor = (score: number) => {
     if (score >= 90) return isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700';
@@ -121,18 +150,39 @@ export default function LeafLensApp() {
   }
 
   const processImage = async (base64Image: string) => {
-    setError(null)
-    setIsLoading(true)
+  setError(null)
+  setIsLoading(true)
+  setPlantInfo(null) // Clear previous results
 
-    try {
-      const result = await identifyPlant(base64Image)
-      setPlantInfo(result)
-    } catch (err) {
-      setError('Failed to identify plant. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
+  try {
+    console.log("🖼️ Processing image...");
+    console.log("Image data length:", base64Image.length);
+    console.log("Image type:", base64Image.substring(0, 30));
+    
+    // Call the identifyPlant function
+    const rawResult = await identifyPlant(base64Image)
+    
+    console.log("📦 Raw result from API:", rawResult);
+    
+    // Validate and normalize the data
+    const validatedResult = validatePlantData(rawResult)
+    
+    console.log("✅ Validated plant data:", validatedResult);
+    setPlantInfo(validatedResult)
+    
+    // Scroll to results after a short delay
+    setTimeout(() => {
+      infoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+    
+  } catch (err) {
+    console.error("❌ Error in processImage:", err);
+    const errorMessage = err instanceof Error ? err.message : 'Failed to identify plant. Please try again.';
+    setError(errorMessage)
+  } finally {
+    setIsLoading(false)
   }
+}
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -183,18 +233,29 @@ export default function LeafLensApp() {
   }, [stream])
 
   useEffect(() => {
-    const fetchPlantFact = async () => {
-      try {
-        setIsLoadingFact(true);
-        const { getRandomPlantFact } = await import('../app/utils/gemini');
-        const fact = await getRandomPlantFact();
-        setPlantFact(fact);
-      } catch (error) {
-        console.error('Error fetching plant fact:', error);
-      } finally {
-        setIsLoadingFact(false);
-      }
-    };
+  const fetchPlantFact = async () => {
+    try {
+      setIsLoadingFact(true);
+      console.log("🌱 Fetching plant fact of the day...");
+      
+      const { getRandomPlantFact } = await import('../app/utils/gemini');
+      const fact = await getRandomPlantFact();
+      
+      console.log("✅ Plant fact loaded:", fact);
+      setPlantFact(fact);
+    } catch (error) {
+      console.error('❌ Error fetching plant fact:', error);
+      // Set a fallback fact
+      setPlantFact({
+        title: "Plant Fact",
+        content: "Plants are essential for life on Earth, producing oxygen and serving as the base of most food chains.",
+        category: "General",
+        imagePrompt: "Beautiful green plants"
+      });
+    } finally {
+      setIsLoadingFact(false);
+    }
+  };
     
     fetchPlantFact();
   }, []);
@@ -959,48 +1020,48 @@ export default function LeafLensApp() {
 
                   {/* Care Information Grid */}
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8 }}
-                    className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-                  >
-                    {[
-                      { icon: Sun, label: "Sunlight", value: plantInfo.care.sunlight, color: "yellow" },
-                      { icon: Droplets, label: "Water", value: plantInfo.care.water, color: "blue" },
-                      { icon: Thermometer, label: "Temperature", value: plantInfo.care.temperature, color: "red" },
-                      { icon: Globe, label: "Humidity", value: plantInfo.care.humidity, color: "cyan" }
-                    ].map((care, index) => (
-                      <motion.div
-                        key={care.label}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.9 + index * 0.1 }}
-                        whileHover={{ scale: 1.05, y: -5 }}
-                        className={`${
-                          isDarkMode 
-                            ? 'bg-slate-700/60 border-slate-600/50' 
-                            : 'bg-white/60 border-gray-200/50'
-                        } backdrop-blur-sm rounded-2xl p-6 shadow-lg border text-center`}
-                      >
-                        <motion.div
-                          whileHover={{ rotate: 10, scale: 1.1 }}
-                          className={`w-12 h-12 bg-${care.color}-100 dark:bg-${care.color}-900/30 rounded-xl flex items-center justify-center mx-auto mb-4`}
-                        >
-                          <care.icon className={`w-6 h-6 text-${care.color}-600 dark:text-${care.color}-400`} />
-                        </motion.div>
-                        <h5 className={`font-semibold ${
-                          isDarkMode ? 'text-white' : 'text-gray-800'
-                        } mb-2`}>
-                          {care.label}
-                        </h5>
-                        <p className={`text-sm ${
-                          isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                        } leading-relaxed`}>
-                          {care.value}
-                        </p>
-                      </motion.div>
-                    ))}
-                  </motion.div>
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.8 }}
+  className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+>
+  {plantInfo && plantInfo.care && [
+    { icon: Sun, label: "Sunlight", value: plantInfo.care.sunlight || "Not specified", color: "yellow" },
+    { icon: Droplets, label: "Water", value: plantInfo.care.water || "Not specified", color: "blue" },
+    { icon: Thermometer, label: "Temperature", value: plantInfo.care.temperature || "Not specified", color: "red" },
+    { icon: Globe, label: "Humidity", value: plantInfo.care.humidity || "Not specified", color: "cyan" }
+  ].map((care, index) => (
+    <motion.div
+      key={care.label}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.9 + index * 0.1 }}
+      whileHover={{ scale: 1.05, y: -5 }}
+      className={`${
+        isDarkMode 
+          ? 'bg-slate-700/60 border-slate-600/50' 
+          : 'bg-white/60 border-gray-200/50'
+      } backdrop-blur-sm rounded-2xl p-6 shadow-lg border text-center`}
+    >
+      <motion.div
+        whileHover={{ rotate: 10, scale: 1.1 }}
+        className={`w-12 h-12 bg-${care.color}-100 dark:bg-${care.color}-900/30 rounded-xl flex items-center justify-center mx-auto mb-4`}
+      >
+        <care.icon className={`w-6 h-6 text-${care.color}-600 dark:text-${care.color}-400`} />
+      </motion.div>
+      <h5 className={`font-semibold ${
+        isDarkMode ? 'text-white' : 'text-gray-800'
+      } mb-2`}>
+        {care.label}
+      </h5>
+      <p className={`text-sm ${
+        isDarkMode ? 'text-gray-300' : 'text-gray-600'
+      } leading-relaxed`}>
+        {care.value}
+      </p>
+    </motion.div>
+  ))}
+</motion.div>
 
                   {/* Native Region */}
                   <motion.div
